@@ -29651,7 +29651,8 @@ memory_extraction_submit
         }
 
         const invite = data.invitation || data;
-        const inviteUrl = invite.invite_url || `${window.location.origin}/invite?token=${invite.token || ''}`;
+        const inviteToken = invite.invite_token || invite.token || '';
+        const inviteUrl = invite.invite_url || `${window.location.origin}/?invite_token=${inviteToken}#accept-invite`;
 
         const resBox = document.getElementById('team-invite-result');
         const linkVal = document.getElementById('team-invite-link-val');
@@ -29707,10 +29708,12 @@ memory_extraction_submit
         if (!resp.ok) return;
         const data = await resp.json();
         window.lastGraphRagCommunities = data.communities || [];
+        const count = data.community_count !== undefined ? data.community_count : (data.count !== undefined ? data.count : (data.communities ? data.communities.length : 0));
+        const entities = data.total_nodes !== undefined ? data.total_nodes : (data.total_entities !== undefined ? data.total_entities : 0);
         const countEl = document.getElementById('graphrag-community-count');
-        if (countEl) countEl.innerText = `${data.count} Communities (${data.total_entities} Entities)`;
+        if (countEl) countEl.innerText = `${count} Communities (${entities} Nodes)`;
         if (typeof window.showToast === 'function') {
-          window.showToast(`GraphRAG: ${data.count} macro-communities detected`);
+          window.showToast(`GraphRAG: ${count} macro-communities detected`);
         }
       } catch (e) {
         console.error('GraphRAG communities error:', e);
@@ -29769,12 +29772,16 @@ memory_extraction_submit
         const pillsContainer = document.getElementById('graphrag-community-pills');
 
         if (summaryContent) {
-          summaryContent.innerText = data.synthesis || 'No synthesis generated.';
+          const synthesisText = Array.isArray(data.hierarchical_synthesis)
+            ? data.hierarchical_synthesis.join('\n\n')
+            : (data.synthesis || 'No synthesis generated.');
+          summaryContent.innerText = synthesisText;
         }
         if (pillsContainer) {
-          pillsContainer.innerHTML = (data.communities || []).map(c => `
+          const contexts = data.macro_contexts || data.communities || [];
+          pillsContainer.innerHTML = contexts.map(c => `
             <span class="px-1.5 py-0.5 rounded-none bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[7px] font-mono">
-              COMMUNITY ${c.community_id} (L${c.level}): ${c.entity_count} entities
+              COMMUNITY ${c.community_id || c.name || ''} (L${c.level || 1}): ${c.entity_count || (c.member_ids ? c.member_ids.length : (c.entities ? c.entities.length : 0))} entities
             </span>
           `).join('');
         }
